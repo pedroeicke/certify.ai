@@ -14,41 +14,43 @@ import {
   Moon,
   Sun
 } from 'lucide-react';
-import { Step, Participant, LayoutConfig, GenerationProgress } from './types';
-import { parseParticipants, generateCertificatesZip, pdfToImageBase64 } from './services/pdfService';
-import { analyzeCertificateLayout } from './services/geminiService';
-import { APP_NAME } from './constants';
+import { Step, Participant, LayoutConfig, GenerationProgress } from './types.ts';
+import { parseParticipants, generateCertificatesZip, pdfToImageBase64 } from './services/pdfService.ts';
+import { analyzeCertificateLayout } from './services/geminiService.ts';
+import { APP_NAME } from './constants.tsx';
+
+const GradientDefs = () => (
+  <svg width="0" height="0" className="absolute">
+    <defs>
+      <linearGradient id="main-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#0ea5e9" />
+        <stop offset="100%" stopColor="#2dd4bf" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
 
 const Logo = () => (
   <div className="flex items-center gap-2 group cursor-default select-none">
     <div className="relative w-9 h-9">
       <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-        <defs>
-          <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#0ea5e9" />
-            <stop offset="100%" stopColor="#2dd4bf" />
-          </linearGradient>
-        </defs>
-        {/* Document Shape */}
         <path 
           d="M10 4C7.79086 4 6 5.79086 6 8V32C6 34.2091 7.79086 36 10 36H30C32.2091 36 34 34.2091 34 32V12L26 4H10Z" 
-          stroke="url(#logo-gradient)" 
+          stroke="url(#main-gradient)" 
           strokeWidth="3" 
           strokeLinecap="round" 
           strokeLinejoin="round"
         />
-        {/* Dog-ear corner */}
         <path 
           d="M26 4V12H34" 
-          stroke="url(#logo-gradient)" 
+          stroke="url(#main-gradient)" 
           strokeWidth="3" 
           strokeLinecap="round" 
           strokeLinejoin="round"
         />
-        {/* Checkmark */}
         <path 
           d="M14 22L18 26L26 16" 
-          stroke="url(#logo-gradient)" 
+          stroke="url(#main-gradient)" 
           strokeWidth="3.5" 
           strokeLinecap="round" 
           strokeLinejoin="round"
@@ -171,6 +173,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-300">
+      <GradientDefs />
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-6 px-4 sm:px-8 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-opacity-90">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Logo />
@@ -260,7 +263,7 @@ const App: React.FC = () => {
                 {!templateFile ? (
                   <label className="group border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 hover:border-sky-300 dark:hover:border-teal-700 transition-all shadow-sm">
                     <div className="bg-white dark:bg-slate-700 p-4 rounded-xl shadow-md mb-4 group-hover:scale-110 transition-transform">
-                      <Upload className="text-sky-500" size={32} />
+                      <Upload stroke="url(#main-gradient)" size={32} />
                     </div>
                     <p className="font-semibold text-slate-700 dark:text-slate-300">Escolha seu arquivo PDF</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center max-w-xs leading-relaxed">A IA identificará onde inserir o texto automaticamente usando o modelo Gemini 3 Flash.</p>
@@ -269,7 +272,7 @@ const App: React.FC = () => {
                 ) : (
                   <div className="p-5 bg-sky-50 dark:bg-sky-900/20 border border-sky-100 dark:border-sky-900/30 rounded-xl flex justify-between items-center animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center gap-3">
-                      <FileText className="text-sky-600 dark:text-sky-400" size={24} />
+                      <FileText stroke="url(#main-gradient)" size={24} />
                       <div>
                         <p className="font-bold text-sky-900 dark:text-sky-100">{templateFile.name}</p>
                         <p className="text-xs text-sky-600/70 dark:text-sky-400/70">Analisado com sucesso</p>
@@ -306,7 +309,7 @@ const App: React.FC = () => {
                 {inputMethod === 'file' ? (
                   <label className="group border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 hover:border-teal-300 dark:hover:border-teal-700 transition-all shadow-sm">
                     <div className="bg-white dark:bg-slate-700 p-3 rounded-xl shadow-md mb-3 group-hover:scale-110 transition-transform">
-                      <Users className="text-teal-500" size={28} />
+                      <Users stroke="url(#main-gradient)" size={28} />
                     </div>
                     <p className="font-semibold text-slate-700 dark:text-slate-300 text-center">
                       {participants.length > 0 && inputMethod === 'file' ? `${participants.length} nomes carregados` : 'Arraste .xlsx, .xls ou .csv'}
@@ -333,7 +336,7 @@ const App: React.FC = () => {
                 <div className="p-8 bg-sky-50/30 dark:bg-sky-950/20 flex flex-col sm:flex-row items-center justify-between gap-6">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-                      <Settings size={14} className="text-sky-500" />
+                      <Settings stroke="url(#main-gradient)" size={14} />
                       Configuração de Estilo
                     </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500">
