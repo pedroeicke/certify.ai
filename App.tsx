@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { 
   Upload, 
   FileText, 
@@ -12,12 +12,37 @@ import {
   Type,
   List,
   Moon,
-  Sun
+  Sun,
+  ChevronRight
 } from 'lucide-react';
-import { Step, Participant, LayoutConfig, GenerationProgress } from './types.ts';
-import { parseParticipants, generateCertificatesZip, pdfToImageBase64 } from './services/pdfService.ts';
-import { analyzeCertificateLayout } from './services/geminiService.ts';
-import { APP_NAME } from './constants.tsx';
+import { Step, Participant, LayoutConfig, GenerationProgress } from './types';
+import { parseParticipants, generateCertificatesZip, pdfToImageBase64 } from './services/pdfService';
+import { analyzeCertificateLayout } from './services/geminiService';
+
+// Error Boundary para evitar tela branca fatal
+class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean}> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error(error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
+          <div className="text-center space-y-4 max-w-md bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl border border-red-100 dark:border-red-900/30">
+            <AlertCircle className="mx-auto text-red-500" size={48} />
+            <h1 className="text-2xl font-bold">Algo deu errado</h1>
+            <p className="text-slate-500">Ocorreu um erro ao carregar a interface. Por favor, recarregue a página.</p>
+            <button onClick={() => window.location.reload()} className="w-full py-3 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-xl font-bold">Recarregar</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const GradientDefs = () => (
   <svg width="0" height="0" className="absolute">
@@ -33,28 +58,10 @@ const GradientDefs = () => (
 const Logo = () => (
   <div className="flex items-center gap-2 group cursor-default select-none">
     <div className="relative w-9 h-9">
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-        <path 
-          d="M10 4C7.79086 4 6 5.79086 6 8V32C6 34.2091 7.79086 36 10 36H30C32.2091 36 34 34.2091 34 32V12L26 4H10Z" 
-          stroke="url(#main-gradient)" 
-          strokeWidth="3" 
-          strokeLinecap="round" 
-          strokeLinejoin="round"
-        />
-        <path 
-          d="M26 4V12H34" 
-          stroke="url(#main-gradient)" 
-          strokeWidth="3" 
-          strokeLinecap="round" 
-          strokeLinejoin="round"
-        />
-        <path 
-          d="M14 22L18 26L26 16" 
-          stroke="url(#main-gradient)" 
-          strokeWidth="3.5" 
-          strokeLinecap="round" 
-          strokeLinejoin="round"
-        />
+      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full transform group-hover:rotate-12 transition-transform duration-300">
+        <path d="M10 4C7.79086 4 6 5.79086 6 8V32C6 34.2091 7.79086 36 10 36H30C32.2091 36 34 34.2091 34 32V12L26 4H10Z" stroke="url(#main-gradient)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M26 4V12H34" stroke="url(#main-gradient)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M14 22L18 26L26 16" stroke="url(#main-gradient)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
     <div className="flex items-baseline font-sans">
@@ -64,7 +71,7 @@ const Logo = () => (
   </div>
 );
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [step, setStep] = useState<Step>(Step.UPLOAD_TEMPLATE);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [templateBytes, setTemplateBytes] = useState<ArrayBuffer | null>(null);
@@ -99,11 +106,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (inputMethod === 'manual') {
-      const names = manualNames
-        .split('\n')
-        .map(n => n.trim())
-        .filter(n => n.length > 0)
-        .map(nome => ({ nome }));
+      const names = manualNames.split('\n').map(n => n.trim()).filter(n => n.length > 0).map(nome => ({ nome }));
       setParticipants(names);
     }
   }, [manualNames, inputMethod]);
@@ -115,7 +118,6 @@ const App: React.FC = () => {
       const bytes = await file.arrayBuffer();
       setTemplateBytes(bytes);
       setError(null);
-      
       setIsAnalyzing(true);
       setStep(Step.AI_ANALYSIS);
       try {
@@ -124,8 +126,7 @@ const App: React.FC = () => {
         setLayoutConfig(config);
         setStep(Step.UPLOAD_LIST);
       } catch (err: any) {
-        console.error(err);
-        setError("Erro na análise da IA. Usando posicionamento padrão centralizado.");
+        setError("Erro na análise da IA. Usando posicionamento padrão.");
         setLayoutConfig({ x: 421, y: 285, fontSize: 50, color: '#FFFFFF', fontFamily: 'Great Vibes' });
         setStep(Step.UPLOAD_LIST);
       } finally {
@@ -139,11 +140,11 @@ const App: React.FC = () => {
     if (file) {
       try {
         const data = await parseParticipants(file);
-        if (data.length === 0) throw new Error("Nenhum participante encontrado na planilha.");
+        if (data.length === 0) throw new Error("Planilha vazia.");
         setParticipants(data);
         setError(null);
       } catch (err: any) {
-        setError(err.message || "Erro ao processar a planilha.");
+        setError(err.message);
       }
     }
   };
@@ -152,202 +153,133 @@ const App: React.FC = () => {
     if (!templateBytes || !participants.length || !layoutConfig) return;
     setStep(Step.GENERATION);
     try {
-      const zipBlob = await generateCertificatesZip(
-        templateBytes,
-        participants,
-        layoutConfig,
-        (current) => setProgress(prev => ({ 
-          ...prev, 
-          current, 
-          total: participants.length, 
-          status: `Gerando certificado ${current} de ${participants.length}...` 
-        }))
+      const zipBlob = await generateCertificatesZip(templateBytes, participants, layoutConfig, (current) => 
+        setProgress(prev => ({ ...prev, current, total: participants.length, status: `Gerando ${current}/${participants.length}...` }))
       );
       setZipUrl(URL.createObjectURL(zipBlob));
       setStep(Step.COMPLETE);
     } catch (err) {
-      setError("Falha ao gerar os certificados.");
+      setError("Falha na geração.");
       setStep(Step.UPLOAD_LIST);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-500">
       <GradientDefs />
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-6 px-4 sm:px-8 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-opacity-90">
+      <header className="backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/50 dark:border-slate-800/50 py-5 px-6 sticky top-0 z-50">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Logo />
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 hover:text-sky-600 dark:hover:text-sky-400 transition-all border border-transparent hover:border-sky-200 dark:hover:border-sky-800"
-              title={darkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
-              aria-label="Alternar tema"
-            >
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-          </div>
+          <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 rounded-2xl bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 hover:scale-110 transition-all">
+            {darkMode ? <Sun size={20} className="text-teal-400" /> : <Moon size={20} className="text-sky-600" />}
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-8">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all">
+      <main className="flex-1 max-w-5xl w-full mx-auto p-6 sm:p-12">
+        <div className="backdrop-blur-2xl bg-white/80 dark:bg-slate-900/80 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-white/40 dark:border-slate-800/40 overflow-hidden">
           {step === Step.AI_ANALYSIS ? (
-            <div className="p-16 flex flex-col items-center justify-center space-y-6 text-center animate-pulse">
+            <div className="p-24 flex flex-col items-center justify-center space-y-8 text-center">
               <div className="relative">
-                  <Loader2 className="animate-spin text-sky-500" size={64} />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <FileText size={24} className="text-teal-400" />
-                  </div>
+                  <div className="absolute -inset-4 bg-sky-500/20 blur-2xl rounded-full animate-pulse"></div>
+                  <Loader2 className="animate-spin text-sky-500 relative" size={72} />
+                  <FileText className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-teal-400" size={24} />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Analisando Certificado com IA</h2>
-                <p className="text-slate-500 dark:text-slate-400 max-w-sm">O Gemini está lendo seu template para encontrar o local ideal para os nomes.</p>
+                <h2 className="text-3xl font-bold mb-3">Analisando seu Modelo</h2>
+                <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">Nossa IA está escaneando o layout para posicionar os nomes perfeitamente.</p>
               </div>
             </div>
           ) : step === Step.GENERATION ? (
-            <div className="p-16 bg-slate-50 dark:bg-slate-900/50 flex flex-col items-center justify-center space-y-6">
-              <Loader2 className="animate-spin text-sky-500" size={48} />
+            <div className="p-24 flex flex-col items-center justify-center space-y-8">
+              <Loader2 className="animate-spin text-sky-500" size={64} />
               <div className="text-center w-full max-w-md">
-                <p className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">{progress.status}</p>
-                <div className="w-full h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                  <div 
-                    className="h-full bg-gradient-to-r from-sky-500 to-teal-400 transition-all duration-300 shadow-[0_0_10px_rgba(14,165,233,0.5)]" 
-                    style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                  />
+                <p className="text-xl font-bold mb-4">{progress.status}</p>
+                <div className="w-full h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-1 shadow-inner">
+                  <div className="h-full bg-gradient-to-r from-sky-500 to-teal-400 rounded-full transition-all duration-500" style={{ width: `${(progress.current / progress.total) * 100}%` }} />
                 </div>
-                <p className="mt-2 text-sm text-slate-400">{Math.round((progress.current / progress.total) * 100)}% concluído</p>
               </div>
             </div>
           ) : step === Step.COMPLETE ? (
-            <div className="p-16 flex flex-col items-center text-center space-y-6 animate-in slide-in-from-bottom-4">
-              <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center shadow-inner">
-                <CheckCircle2 size={56} />
+            <div className="p-24 flex flex-col items-center text-center space-y-8">
+              <div className="w-28 h-28 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-[2rem] flex items-center justify-center shadow-lg shadow-teal-500/30">
+                <CheckCircle2 size={64} />
               </div>
               <div>
-                <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Certificados Prontos!</h2>
-                <p className="text-slate-500 dark:text-slate-400">{participants.length} documentos gerados individualmente.</p>
+                <h2 className="text-4xl font-black mb-3 italic tracking-tight">Missão Cumprida!</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-lg">Seus {participants.length} certificados foram gerados.</p>
               </div>
-              <a 
-                href={zipUrl!} 
-                download="certificados_gerados.zip" 
-                className="bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold py-5 px-12 rounded-2xl flex items-center gap-3 shadow-xl transition-all hover:scale-105 active:scale-95"
-              >
-                <Download size={24} /> Baixar Pacote Completo (ZIP)
+              <a href={zipUrl!} download="certificados.zip" className="group bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-black py-6 px-14 rounded-3xl flex items-center gap-4 shadow-2xl shadow-sky-500/40 transition-all hover:scale-105 active:scale-95">
+                <Download size={28} /> BAIXAR TUDO AGORA
               </a>
-              <button 
-                onClick={() => {
-                  setStep(Step.UPLOAD_TEMPLATE);
-                  setTemplateFile(null);
-                  setParticipants([]);
-                  setManualNames('');
-                }} 
-                className="text-slate-400 dark:text-slate-500 font-medium hover:text-sky-500 dark:hover:text-teal-400 underline underline-offset-4 transition-colors"
-              >
-                Começar Novo Lote
-              </button>
+              <button onClick={() => window.location.reload()} className="text-slate-400 hover:text-sky-500 font-bold transition-colors">Gerar Novo Lote</button>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {error && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-400 text-sm flex items-center gap-2 animate-in fade-in">
-                  <AlertCircle size={16} /> {error}
-                </div>
-              )}
+            <div className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
+              {error && <div className="p-6 bg-red-500/10 text-red-500 text-center font-bold flex items-center justify-center gap-2 border-b border-red-500/20"><AlertCircle size={20} /> {error}</div>}
               
-              <div className="p-8">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 flex items-center justify-center text-sm font-bold">1</span>
-                  Modelo do Certificado (PDF)
+              <div className="p-10 sm:p-14">
+                <h3 className="text-2xl font-bold mb-8 flex items-center gap-4">
+                  <span className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-500 flex items-center justify-center text-lg font-black italic">01</span>
+                  Modelo Base
                 </h3>
                 {!templateFile ? (
-                  <label className="group border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 hover:border-sky-300 dark:hover:border-teal-700 transition-all shadow-sm">
-                    <div className="bg-white dark:bg-slate-700 p-4 rounded-xl shadow-md mb-4 group-hover:scale-110 transition-transform">
-                      <Upload stroke="url(#main-gradient)" size={32} />
+                  <label className="group border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem] p-16 flex flex-col items-center justify-center cursor-pointer hover:bg-sky-50/30 dark:hover:bg-sky-900/10 hover:border-sky-300 transition-all duration-300">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl group-hover:scale-110 transition-transform duration-300">
+                      <Upload stroke="url(#main-gradient)" size={48} />
                     </div>
-                    <p className="font-semibold text-slate-700 dark:text-slate-300">Escolha seu arquivo PDF</p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center max-w-xs leading-relaxed">A IA identificará onde inserir o texto automaticamente usando o modelo Gemini 3 Flash.</p>
+                    <p className="text-xl font-bold mt-6">Arraste seu PDF aqui</p>
+                    <p className="text-slate-400 mt-2">Formatos aceitos: .pdf de página única</p>
                     <input type="file" accept=".pdf" className="hidden" onChange={handleTemplateUpload} />
                   </label>
                 ) : (
-                  <div className="p-5 bg-sky-50 dark:bg-sky-900/20 border border-sky-100 dark:border-sky-900/30 rounded-xl flex justify-between items-center animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center gap-3">
-                      <FileText stroke="url(#main-gradient)" size={24} />
+                  <div className="p-8 bg-sky-500/5 border border-sky-500/20 rounded-3xl flex items-center justify-between group">
+                    <div className="flex items-center gap-4">
+                      <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm"><FileText stroke="url(#main-gradient)" size={32} /></div>
                       <div>
-                        <p className="font-bold text-sky-900 dark:text-sky-100">{templateFile.name}</p>
-                        <p className="text-xs text-sky-600/70 dark:text-sky-400/70">Analisado com sucesso</p>
+                        <p className="text-lg font-bold truncate max-w-xs">{templateFile.name}</p>
+                        <p className="text-sky-500 font-bold text-sm uppercase tracking-widest">Modelo Carregado</p>
                       </div>
                     </div>
-                    <button onClick={() => setTemplateFile(null)} className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-sky-200 dark:border-sky-800 rounded-lg text-sky-600 dark:text-sky-400 text-xs font-bold uppercase tracking-wider hover:bg-sky-500 hover:text-white transition-all">Alterar</button>
+                    <button onClick={() => setTemplateFile(null)} className="px-6 py-3 bg-white dark:bg-slate-800 rounded-xl font-bold text-sky-500 shadow-sm hover:bg-sky-500 hover:text-white transition-all">Alterar</button>
                   </div>
                 )}
               </div>
 
-              <div className={`p-8 transition-all duration-500 ${!templateFile ? 'opacity-30 pointer-events-none grayscale' : ''}`}>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 flex items-center justify-center text-sm font-bold">2</span>
+              <div className={`p-10 sm:p-14 transition-opacity duration-500 ${!templateFile ? 'opacity-20 pointer-events-none grayscale' : ''}`}>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+                  <h3 className="text-2xl font-bold flex items-center gap-4">
+                    <span className="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-500 flex items-center justify-center text-lg font-black italic">02</span>
                     Participantes
                   </h3>
-                  
-                  <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl self-end sm:self-auto">
-                    <button 
-                      onClick={() => setInputMethod('file')}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${inputMethod === 'file' ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-teal-400 shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                    >
-                      <List size={14} /> Planilha Excel
-                    </button>
-                    <button 
-                      onClick={() => setInputMethod('manual')}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${inputMethod === 'manual' ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-teal-400 shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                    >
-                      <Type size={14} /> Digitar Lista
-                    </button>
+                  <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+                    <button onClick={() => setInputMethod('file')} className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${inputMethod === 'file' ? 'bg-white dark:bg-slate-700 text-sky-600 shadow-lg' : 'text-slate-400'}`}><List size={16} /> Excel</button>
+                    <button onClick={() => setInputMethod('manual')} className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${inputMethod === 'manual' ? 'bg-white dark:bg-slate-700 text-sky-600 shadow-lg' : 'text-slate-400'}`}><Type size={16} /> Texto</button>
                   </div>
                 </div>
 
                 {inputMethod === 'file' ? (
-                  <label className="group border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer bg-slate-50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 hover:border-teal-300 dark:hover:border-teal-700 transition-all shadow-sm">
-                    <div className="bg-white dark:bg-slate-700 p-3 rounded-xl shadow-md mb-3 group-hover:scale-110 transition-transform">
-                      <Users stroke="url(#main-gradient)" size={28} />
-                    </div>
-                    <p className="font-semibold text-slate-700 dark:text-slate-300 text-center">
-                      {participants.length > 0 && inputMethod === 'file' ? `${participants.length} nomes carregados` : 'Arraste .xlsx, .xls ou .csv'}
-                    </p>
+                  <label className="group border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2rem] p-12 flex flex-col items-center justify-center cursor-pointer hover:border-teal-300 transition-all duration-300">
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl shadow-lg group-hover:scale-110 transition-transform duration-300"><Users stroke="url(#main-gradient)" size={40} /></div>
+                    <p className="text-lg font-bold mt-6">{participants.length > 0 ? `${participants.length} nomes identificados` : 'Carregue sua planilha'}</p>
                     <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleListUpload} />
                   </label>
                 ) : (
-                  <div className="space-y-3">
-                    <textarea
-                      value={manualNames}
-                      onChange={(e) => setManualNames(e.target.value)}
-                      placeholder="João da Silva&#10;Maria Santos Oliveira&#10;Pedro de Alcântara..."
-                      className="w-full h-40 p-5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-2xl focus:bg-white dark:focus:bg-slate-900 focus:border-sky-300 dark:focus:border-teal-700 focus:ring-4 focus:ring-sky-50 dark:focus:ring-sky-900/10 outline-none transition-all font-mono text-sm resize-none placeholder:text-slate-400"
-                    />
-                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-                      <span className="text-slate-400 dark:text-slate-500">Um nome por linha</span>
-                      <span className="text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 px-3 py-1 rounded-full">{participants.length} nomes identificados</span>
-                    </div>
+                  <div className="space-y-4">
+                    <textarea value={manualNames} onChange={(e) => setManualNames(e.target.value)} placeholder="Um nome por linha..." className="w-full h-56 p-8 bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-3xl focus:border-sky-300 focus:bg-white transition-all outline-none text-lg font-medium" />
+                    <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest px-4"><span className="text-slate-400">Separe por quebra de linha</span><span className="text-teal-500">{participants.length} nomes</span></div>
                   </div>
                 )}
               </div>
 
               {participants.length > 0 && layoutConfig && (
-                <div className="p-8 bg-sky-50/30 dark:bg-sky-950/20 flex flex-col sm:flex-row items-center justify-between gap-6">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-                      <Settings stroke="url(#main-gradient)" size={14} />
-                      Configuração de Estilo
-                    </div>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">
-                      Fonte: <span className="font-script text-lg bg-gradient-to-r from-sky-500 to-teal-400 bg-clip-text text-transparent mx-1">Great Vibes</span> • Tamanho: {layoutConfig.fontSize}pt
-                    </p>
+                <div className="p-10 bg-gradient-to-br from-sky-500/5 to-teal-500/5 flex flex-col sm:flex-row items-center justify-between gap-8">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 text-lg font-bold"><Settings stroke="url(#main-gradient)" size={20} /> IA Configurou:</div>
+                    <p className="text-slate-500 font-medium">Fonte <span className="font-script text-2xl text-sky-500 ml-2">Great Vibes</span> • {layoutConfig.fontSize}pt</p>
                   </div>
-                  <button 
-                    onClick={startGeneration} 
-                    className="w-full sm:w-auto bg-gradient-to-r from-sky-500 to-teal-500 text-white font-bold py-4 px-12 rounded-2xl shadow-xl shadow-sky-600/20 hover:from-sky-600 hover:to-teal-600 hover:-translate-y-0.5 transition-all active:scale-95 flex items-center justify-center gap-3"
-                  >
-                    <Download size={20} /> Iniciar Geração em Lote
+                  <button onClick={startGeneration} className="w-full sm:w-auto bg-gradient-to-r from-sky-500 to-teal-500 text-white font-black py-5 px-16 rounded-3xl shadow-2xl shadow-sky-500/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 text-lg">
+                    GERAR EM LOTE <ChevronRight size={24} />
                   </button>
                 </div>
               )}
@@ -356,15 +288,19 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      <footer className="py-10 text-center border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 transition-colors duration-300">
-        <div className="max-w-5xl mx-auto px-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-semibold">
-            Feito por <a href="https://www.pastelapps.dev/" target="_blank" rel="noopener noreferrer" className="bg-gradient-to-r from-sky-500 to-teal-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity">Pastel Apps</a>
-          </p>
-        </div>
+      <footer className="py-12 text-center">
+        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+          Engineered by <a href="https://www.pastelapps.dev/" className="bg-gradient-to-r from-sky-500 to-teal-400 bg-clip-text text-transparent hover:opacity-70 transition-opacity">Pastel Apps</a>
+        </p>
       </footer>
     </div>
   );
 };
+
+const App = () => (
+  <ErrorBoundary>
+    <AppContent />
+  </ErrorBoundary>
+);
 
 export default App;
