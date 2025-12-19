@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { 
   Upload, 
@@ -20,9 +19,20 @@ import {
 import { Step, Participant, LayoutConfig, GenerationProgress } from './types';
 import { parseParticipants, generateCertificatesZip } from './services/pdfService';
 
+// Define explicit interfaces for ErrorBoundary to fix TypeScript property access errors
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
 // Error Boundary para evitar tela branca fatal
-class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
-  constructor(props: any) {
+// Fixed "Property 'state' does not exist" and "Property 'props' does not exist" by providing generic types to Component
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -85,7 +95,7 @@ const Logo = () => (
 
 const DEFAULT_LAYOUT: LayoutConfig = {
   x: 421, 
-  y: 340, // Posicionamento padrão otimizado
+  y: 340, // Ajustado para ficar acima da linha central conforme feedback
   fontSize: 65,
   color: '#FFFFFF',
   fontFamily: 'Great Vibes'
