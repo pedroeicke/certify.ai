@@ -1,0 +1,5 @@
+{
+  "name": "certify.ai - Automated Certificate Generator",
+  "description": "An intelligent system that generates individual PDF certificates from a template and a participant list, using AI to detect optimal text placement.",
+  "requestFramePermissions": []
+}
