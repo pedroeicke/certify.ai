@@ -8,17 +8,17 @@ import {
   CheckCircle2, 
   Loader2,
   AlertCircle,
-  Settings,
   Type,
   List,
   Moon,
   Sun,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
+  MoveVertical,
+  Settings2
 } from 'lucide-react';
 import { Step, Participant, LayoutConfig, GenerationProgress } from './types';
-import { parseParticipants, generateCertificatesZip, pdfToImageBase64 } from './services/pdfService';
-import { analyzeCertificateLayout } from './services/geminiService';
+import { parseParticipants, generateCertificatesZip } from './services/pdfService';
 
 // Error Boundary para evitar tela branca fatal
 class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
@@ -83,6 +83,14 @@ const Logo = () => (
   </div>
 );
 
+const DEFAULT_LAYOUT: LayoutConfig = {
+  x: 421, 
+  y: 340, // Posicionamento padrão otimizado
+  fontSize: 65,
+  color: '#FFFFFF',
+  fontFamily: 'Great Vibes'
+};
+
 const AppContent: React.FC = () => {
   const [step, setStep] = useState<Step>(Step.UPLOAD_TEMPLATE);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
@@ -90,8 +98,7 @@ const AppContent: React.FC = () => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [manualNames, setManualNames] = useState<string>('');
   const [inputMethod, setInputMethod] = useState<'file' | 'manual'>('file');
-  const [layoutConfig, setLayoutConfig] = useState<LayoutConfig | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [layoutConfig, setLayoutConfig] = useState<LayoutConfig>(DEFAULT_LAYOUT);
   const [progress, setProgress] = useState<GenerationProgress>({ total: 0, current: 0, status: '' });
   const [zipUrl, setZipUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,21 +137,7 @@ const AppContent: React.FC = () => {
       const bytes = await file.arrayBuffer();
       setTemplateBytes(bytes);
       setError(null);
-      setIsAnalyzing(true);
-      setStep(Step.AI_ANALYSIS);
-      try {
-        const base64 = await pdfToImageBase64(file);
-        const config = await analyzeCertificateLayout(base64);
-        setLayoutConfig(config);
-        setStep(Step.UPLOAD_LIST);
-      } catch (err: any) {
-        console.error(err);
-        setError("Erro na análise da IA. Usando posicionamento padrão.");
-        setLayoutConfig({ x: 421, y: 285, fontSize: 50, color: '#FFFFFF', fontFamily: 'Great Vibes' });
-        setStep(Step.UPLOAD_LIST);
-      } finally {
-        setIsAnalyzing(false);
-      }
+      setStep(Step.UPLOAD_LIST);
     }
   };
 
@@ -163,7 +156,7 @@ const AppContent: React.FC = () => {
   };
 
   const startGeneration = async () => {
-    if (!templateBytes || !participants.length || !layoutConfig) return;
+    if (!templateBytes || !participants.length) return;
     setStep(Step.GENERATION);
     try {
       const zipBlob = await generateCertificatesZip(templateBytes, participants, layoutConfig, (current) => 
@@ -176,6 +169,17 @@ const AppContent: React.FC = () => {
       setError("Falha na geração dos documentos.");
       setStep(Step.UPLOAD_LIST);
     }
+  };
+
+  const resetApp = () => {
+    setStep(Step.UPLOAD_TEMPLATE);
+    setTemplateFile(null);
+    setTemplateBytes(null);
+    setParticipants([]);
+    setManualNames('');
+    setZipUrl(null);
+    setError(null);
+    setProgress({ total: 0, current: 0, status: '' });
   };
 
   return (
@@ -192,19 +196,7 @@ const AppContent: React.FC = () => {
 
       <main className="flex-1 max-w-5xl w-full mx-auto p-6 sm:p-12">
         <div className="backdrop-blur-2xl bg-white/80 dark:bg-slate-900/80 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-white/40 dark:border-slate-800/40 overflow-hidden">
-          {step === Step.AI_ANALYSIS ? (
-            <div className="p-24 flex flex-col items-center justify-center space-y-8 text-center">
-              <div className="relative">
-                  <div className="absolute -inset-4 bg-sky-500/20 blur-2xl rounded-full animate-pulse"></div>
-                  <Loader2 className="animate-spin text-sky-500 relative" size={72} />
-                  <FileText className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-teal-400" size={24} />
-              </div>
-              <div>
-                <h2 className="text-3xl font-bold mb-3">Analisando seu Modelo</h2>
-                <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">Nossa IA está escaneando o layout para posicionar os nomes perfeitamente.</p>
-              </div>
-            </div>
-          ) : step === Step.GENERATION ? (
+          {step === Step.GENERATION ? (
             <div className="p-24 flex flex-col items-center justify-center space-y-8">
               <Loader2 className="animate-spin text-sky-500" size={64} />
               <div className="text-center w-full max-w-md">
@@ -226,7 +218,7 @@ const AppContent: React.FC = () => {
               <a href={zipUrl!} download="certificados.zip" className="group bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-black py-6 px-14 rounded-3xl flex items-center gap-4 shadow-2xl shadow-sky-500/40 transition-all hover:scale-105 active:scale-95">
                 <Download size={28} /> BAIXAR TUDO AGORA
               </a>
-              <button onClick={() => window.location.reload()} className="text-slate-400 hover:text-sky-500 font-bold transition-colors">Gerar Novo Lote</button>
+              <button onClick={resetApp} className="text-slate-400 hover:text-sky-500 font-bold transition-colors">Gerar Novo Lote</button>
             </div>
           ) : (
             <div className="divide-y divide-slate-100/50 dark:divide-slate-800/50">
@@ -243,7 +235,7 @@ const AppContent: React.FC = () => {
                       <Upload stroke="url(#main-gradient)" size={48} />
                     </div>
                     <p className="text-xl font-bold mt-6">Arraste seu PDF aqui</p>
-                    <p className="text-slate-400 mt-2">Formatos aceitos: .pdf de página única</p>
+                    <p className="text-slate-400 mt-2">Padrão: A4 Paisagem</p>
                     <input type="file" accept=".pdf" className="hidden" onChange={handleTemplateUpload} />
                   </label>
                 ) : (
@@ -286,15 +278,68 @@ const AppContent: React.FC = () => {
                 )}
               </div>
 
-              {participants.length > 0 && layoutConfig && (
-                <div className="p-10 bg-gradient-to-br from-sky-500/5 to-teal-500/5 flex flex-col sm:flex-row items-center justify-between gap-8">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3 text-lg font-bold"><Settings stroke="url(#main-gradient)" size={20} /> IA Configurou:</div>
-                    <p className="text-slate-500 font-medium">Fonte <span className="font-script text-2xl text-sky-500 ml-2">Great Vibes</span> • {layoutConfig.fontSize}pt</p>
+              {participants.length > 0 && (
+                <div className="p-10 bg-gradient-to-br from-sky-500/5 to-teal-500/5 space-y-8">
+                  <div className="bg-white dark:bg-slate-800/50 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <h4 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-slate-400 mb-6">
+                      <Settings2 size={16} /> Ajuste Fino do Layout
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <label className="flex items-center gap-2 font-bold text-slate-600 dark:text-slate-300">
+                            <MoveVertical size={18} className="text-sky-500" /> Altura (Eixo Y)
+                          </label>
+                          <span className="bg-sky-500/10 text-sky-600 px-3 py-1 rounded-lg font-mono font-bold">{layoutConfig.y}pt</span>
+                        </div>
+                        <input 
+                          type="range" min="0" max="595" value={layoutConfig.y} 
+                          onChange={(e) => setLayoutConfig({...layoutConfig, y: parseInt(e.target.value)})}
+                          className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                        />
+                        <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                          <span>Base do PDF</span>
+                          <span>Topo do PDF</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <label className="flex items-center gap-2 font-bold text-slate-600 dark:text-slate-300">
+                            <Type size={18} className="text-teal-500" /> Tamanho da Fonte
+                          </label>
+                          <span className="bg-teal-500/10 text-teal-600 px-3 py-1 rounded-lg font-mono font-bold">{layoutConfig.fontSize}pt</span>
+                        </div>
+                        <input 
+                          type="range" min="20" max="150" value={layoutConfig.fontSize} 
+                          onChange={(e) => setLayoutConfig({...layoutConfig, fontSize: parseInt(e.target.value)})}
+                          className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                        />
+                         <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                          <span>Pequeno</span>
+                          <span>Enorme</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                       <p className="text-slate-400 text-sm italic">O nome será centralizado horizontalmente.</p>
+                       <div className="font-script text-3xl text-sky-500 opacity-60">Exemplo de Nome</div>
+                    </div>
                   </div>
-                  <button onClick={startGeneration} className="w-full sm:w-auto bg-gradient-to-r from-sky-500 to-teal-500 text-white font-black py-5 px-16 rounded-3xl shadow-2xl shadow-sky-500/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 text-lg">
-                    GERAR EM LOTE <ChevronRight size={24} />
-                  </button>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-8 pt-4">
+                    <div className="space-y-1">
+                      <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Resumo</p>
+                      <p className="text-slate-600 dark:text-slate-300 font-bold">
+                        {participants.length} nomes • Great Vibes • Branco
+                      </p>
+                    </div>
+                    <button onClick={startGeneration} className="w-full sm:w-auto bg-gradient-to-r from-sky-500 to-teal-500 text-white font-black py-5 px-16 rounded-3xl shadow-2xl shadow-sky-500/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 text-lg">
+                      GERAR EM LOTE <ChevronRight size={24} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

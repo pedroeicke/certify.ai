@@ -3,10 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 
-// Ensure process.env exists globally to prevent crashes in the browser
-if (typeof (window as any).process === 'undefined') {
-  (window as any).process = { env: {} };
-}
+// Removed manual process.env shim as the execution context handles environment variables.
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

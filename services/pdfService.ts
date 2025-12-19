@@ -5,7 +5,8 @@ import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
 import { Participant, LayoutConfig } from '../types';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.mjs';
+// Sincronizado com a versão instalada no package.json (4.0.379)
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.mjs';
 
 /**
  * Limpa o nome para evitar caracteres invisíveis de cópia/cola.
@@ -17,35 +18,28 @@ const cleanName = (name: any): string => {
 
 /**
  * Renderiza o texto em um canvas e retorna os bytes de uma imagem PNG.
- * Isso garante que o navegador cuide da renderização da fonte Great Vibes.
  */
 const textToImageBytes = async (text: string, fontSize: number, color: string): Promise<{ bytes: Uint8Array, width: number, height: number }> => {
-  // Garantir que a fonte esteja carregada no navegador
   await document.fonts.load(`${fontSize}px "Great Vibes"`);
 
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error("Não foi possível criar contexto 2D");
 
-  // Configurar fonte para medir
-  ctx.font = `${fontSize * 2}px "Great Vibes"`; // Renderizamos em 2x para alta qualidade
+  ctx.font = `${fontSize * 2}px "Great Vibes"`;
   const metrics = ctx.measureText(text);
   
-  // Definir tamanho do canvas com margens de segurança para os "rabichos" da fonte cursiva
   const padding = fontSize * 0.5;
   canvas.width = metrics.width + (padding * 2);
-  canvas.height = (fontSize * 3); // Espaço vertical generoso
+  canvas.height = (fontSize * 3);
 
-  // Configurar fonte novamente após redimensionar canvas
   ctx.font = `${fontSize * 2}px "Great Vibes"`;
   ctx.fillStyle = color;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
 
-  // Desenhar texto no centro
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
-  // Converter para bytes PNG
   return new Promise((resolve) => {
     canvas.toBlob((blob) => {
       const reader = new FileReader();
@@ -53,7 +47,7 @@ const textToImageBytes = async (text: string, fontSize: number, color: string): 
         const arrayBuffer = reader.result as ArrayBuffer;
         resolve({
           bytes: new Uint8Array(arrayBuffer),
-          width: canvas.width / 2, // Voltamos para escala 1x para o PDF
+          width: canvas.width / 2,
           height: canvas.height / 2
         });
       };
@@ -80,7 +74,7 @@ export const parseParticipants = async (file: File): Promise<Participant[]> => {
         
         resolve(participants);
       } catch (err) {
-        reject(new Error("Erro ao ler planilha."));
+        reject(new Error("Erro ao ler planilha. Verifique o formato."));
       }
     };
     reader.readAsArrayBuffer(file);
@@ -107,15 +101,10 @@ export const generateCertificatesZip = async (
       const text = participant.nome;
       const fontSize = config.fontSize || 60;
 
-      // Gerar a imagem do texto (Branco #FFFFFF)
-      const { bytes, width: imgW, height: imgH } = await textToImageBytes(text, fontSize, '#FFFFFF');
-      
-      // Embutir a imagem PNG no PDF
+      const { bytes, width: imgW, height: imgH } = await textToImageBytes(text, fontSize, config.color || '#FFFFFF');
       const nameImage = await pdfDoc.embedPng(bytes);
       
-      // Centralizar a imagem
       const xPos = (width - imgW) / 2;
-      // Ajuste fino do Y: Como a imagem tem padding vertical, compensamos um pouco
       const yPos = config.y - (imgH / 2);
 
       firstPage.drawImage(nameImage, {
@@ -126,14 +115,12 @@ export const generateCertificatesZip = async (
       });
 
       const pdfBytes = await pdfDoc.save();
-      
-      // Nome de arquivo limpo para o ZIP
       const fileNameSafe = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "_");
       zip.file(`${String(i+1).padStart(3, '0')}_${fileNameSafe}.pdf`, pdfBytes);
       
       onProgress(i + 1);
     } catch (err: any) {
-      console.error(`Erro no participante ${participant.nome}:`, err.message);
+      console.error(`Erro no participante ${participant.nome}:`, err);
     }
   }
 
@@ -144,7 +131,7 @@ export const pdfToImageBase64 = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 2.0 });
+    const viewport = page.getViewport({ scale: 1.5 });
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d')!;
     canvas.height = viewport.height;

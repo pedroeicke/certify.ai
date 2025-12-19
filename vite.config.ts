@@ -4,9 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  define: {
-    'process.env': {}
-  },
+  // Removed manual process.env define as API keys should be handled by the external environment.
   build: {
     outDir: 'dist',
     sourcemap: false,

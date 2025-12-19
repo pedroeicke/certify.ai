@@ -4,17 +4,15 @@ import { LayoutConfig } from "../types";
 
 export const analyzeCertificateLayout = async (base64Image: string): Promise<LayoutConfig> => {
   // Use the API key directly from process.env as per instructions
-  // The process object is shimmed in index.html and index.tsx
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [
-        {
-          parts: [
-            {
-              text: `Você é um analista de design. Estou enviando a imagem da página 1 de um certificado.
+      contents: {
+        parts: [
+          {
+            text: `Você é um analista de design. Estou enviando a imagem da página 1 de um certificado.
               
               OBJETIVO:
               1. Localize o espaço vazio centralizado entre o texto "ESTE CERTIFICADO É CONFERIDO A" e o texto informativo do curso logo abaixo.
@@ -26,16 +24,15 @@ export const analyzeCertificateLayout = async (base64Image: string): Promise<Lay
               - O texto deve ser centralizado horizontalmente (x ≈ 421).
               - A cor da fonte deve ser sempre BRANCO (#FFFFFF).
               - O tamanho da fonte deve ser elegante (entre 50 e 70pt).`
-            },
-            {
-              inlineData: {
-                mimeType: "image/jpeg",
-                data: base64Image
-              }
+          },
+          {
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: base64Image
             }
-          ]
-        }
-      ],
+          }
+        ]
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
