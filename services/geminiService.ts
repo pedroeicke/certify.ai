@@ -3,50 +3,39 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { LayoutConfig } from "../types";
 
 export const analyzeCertificateLayout = async (base64Image: string): Promise<LayoutConfig> => {
-  // Busca a chave de forma segura, evitando erros caso o objeto não exista
-  const apiKey = (typeof process !== 'undefined' && process.env?.API_KEY) || (window as any).process?.env?.API_KEY || "";
-  
-  if (!apiKey) {
-    console.warn("API_KEY não encontrada. Usando configurações padrão.");
-    return {
-      x: 421,
-      y: 285,
-      fontSize: 65,
-      color: "#FFFFFF",
-      fontFamily: "Great Vibes"
-    };
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+  // Use the API key directly from process.env as per instructions
+  // The process object is shimmed in index.html and index.tsx
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
   
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: {
-        parts: [
-          {
-            text: `Você é um analista de design. Estou enviando a imagem da página 1 de um certificado.
-            
-            OBJETIVO:
-            1. Localize o espaço vazio centralizado entre o texto "ESTE CERTIFICADO É CONFERIDO A" e o texto informativo do curso logo abaixo.
-            2. Calcule as coordenadas em pontos PDF (A4 Paisagem: 842 largura x 595 altura).
-            3. O ponto (0,0) é o CANTO INFERIOR ESQUERDO.
-            
-            REGRAS ESTRITAS:
-            - A fonte DEVE ser "Great Vibes".
-            - O texto deve ser centralizado horizontalmente (x ≈ 421).
-            - A cor da fonte deve ser sempre BRANCO (#FFFFFF).
-            - O tamanho da fonte deve ser elegante (entre 50 e 70pt).
-            `
-          },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image
+      contents: [
+        {
+          parts: [
+            {
+              text: `Você é um analista de design. Estou enviando a imagem da página 1 de um certificado.
+              
+              OBJETIVO:
+              1. Localize o espaço vazio centralizado entre o texto "ESTE CERTIFICADO É CONFERIDO A" e o texto informativo do curso logo abaixo.
+              2. Calcule as coordenadas em pontos PDF (A4 Paisagem: 842 largura x 595 altura).
+              3. O ponto (0,0) é o CANTO INFERIOR ESQUERDO.
+              
+              REGRAS ESTRITAS:
+              - A fonte DEVE ser "Great Vibes".
+              - O texto deve ser centralizado horizontalmente (x ≈ 421).
+              - A cor da fonte deve ser sempre BRANCO (#FFFFFF).
+              - O tamanho da fonte deve ser elegante (entre 50 e 70pt).`
+            },
+            {
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: base64Image
+              }
             }
-          }
-        ]
-      },
+          ]
+        }
+      ],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -76,6 +65,7 @@ export const analyzeCertificateLayout = async (base64Image: string): Promise<Lay
     };
   } catch (error) {
     console.error("AI Analysis failed, using defaults:", error);
+    // Return safe defaults if analysis fails
     return {
       x: 421,
       y: 285,

@@ -13,29 +13,41 @@ import {
   List,
   Moon,
   Sun,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import { Step, Participant, LayoutConfig, GenerationProgress } from './types';
 import { parseParticipants, generateCertificatesZip, pdfToImageBase64 } from './services/pdfService';
 import { analyzeCertificateLayout } from './services/geminiService';
 
 // Error Boundary para evitar tela branca fatal
-class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean}> {
+class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
   constructor(props: any) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
-  static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error(error, errorInfo); }
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) { console.error("Uncaught error:", error, errorInfo); }
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950">
-          <div className="text-center space-y-4 max-w-md bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl border border-red-100 dark:border-red-900/30">
-            <AlertCircle className="mx-auto text-red-500" size={48} />
-            <h1 className="text-2xl font-bold">Algo deu errado</h1>
-            <p className="text-slate-500">Ocorreu um erro ao carregar a interface. Por favor, recarregue a página.</p>
-            <button onClick={() => window.location.reload()} className="w-full py-3 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-xl font-bold">Recarregar</button>
+        <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950">
+          <div className="text-center space-y-6 max-w-md bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] shadow-2xl border border-red-100 dark:border-red-900/30">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-2xl flex items-center justify-center mx-auto">
+              <AlertCircle size={32} />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Ops! Algo deu errado</h1>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">
+                {this.state.error?.message || "Ocorreu um erro inesperado ao carregar a interface."}
+              </p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="w-full py-4 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95"
+            >
+              <RefreshCw size={18} /> Tentar Novamente
+            </button>
           </div>
         </div>
       );
@@ -126,6 +138,7 @@ const AppContent: React.FC = () => {
         setLayoutConfig(config);
         setStep(Step.UPLOAD_LIST);
       } catch (err: any) {
+        console.error(err);
         setError("Erro na análise da IA. Usando posicionamento padrão.");
         setLayoutConfig({ x: 421, y: 285, fontSize: 50, color: '#FFFFFF', fontFamily: 'Great Vibes' });
         setStep(Step.UPLOAD_LIST);
@@ -159,7 +172,8 @@ const AppContent: React.FC = () => {
       setZipUrl(URL.createObjectURL(zipBlob));
       setStep(Step.COMPLETE);
     } catch (err) {
-      setError("Falha na geração.");
+      console.error(err);
+      setError("Falha na geração dos documentos.");
       setStep(Step.UPLOAD_LIST);
     }
   };
