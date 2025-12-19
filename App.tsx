@@ -349,7 +349,7 @@ const AppContent: React.FC = () => {
 
       <footer className="py-12 text-center">
         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-          Engineered by <a href="https://www.pastelapps.dev/" className="bg-gradient-to-r from-sky-500 to-teal-400 bg-clip-text text-transparent hover:opacity-70 transition-opacity">Pastel Apps</a>
+          APP Desenvolvido por <a href="https://www.pastelapps.dev/" className="bg-gradient-to-r from-sky-500 to-teal-400 bg-clip-text text-transparent hover:opacity-70 transition-opacity">PASTEL APPS</a>
         </p>
       </footer>
     </div>
