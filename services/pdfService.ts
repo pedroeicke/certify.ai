@@ -19,21 +19,21 @@ const cleanName = (name: any): string => {
 /**
  * Renderiza o texto em um canvas e retorna os bytes de uma imagem PNG.
  */
-const textToImageBytes = async (text: string, fontSize: number, color: string): Promise<{ bytes: Uint8Array, width: number, height: number }> => {
-  await document.fonts.load(`${fontSize}px "Great Vibes"`);
+const textToImageBytes = async (text: string, fontSize: number, color: string, fontFamily: string): Promise<{ bytes: Uint8Array, width: number, height: number }> => {
+  await document.fonts.load(`${fontSize}px "${fontFamily}"`);
 
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error("Não foi possível criar contexto 2D");
 
-  ctx.font = `${fontSize * 2}px "Great Vibes"`;
+  ctx.font = `${fontSize * 2}px "${fontFamily}"`;
   const metrics = ctx.measureText(text);
   
   const padding = fontSize * 0.5;
   canvas.width = metrics.width + (padding * 2);
   canvas.height = (fontSize * 3);
 
-  ctx.font = `${fontSize * 2}px "Great Vibes"`;
+  ctx.font = `${fontSize * 2}px "${fontFamily}"`;
   ctx.fillStyle = color;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
@@ -100,8 +100,9 @@ export const generateCertificatesZip = async (
 
       const text = participant.nome;
       const fontSize = config.fontSize || 60;
+      const fontFamily = config.fontFamily || 'Great Vibes';
 
-      const { bytes, width: imgW, height: imgH } = await textToImageBytes(text, fontSize, config.color || '#FFFFFF');
+      const { bytes, width: imgW, height: imgH } = await textToImageBytes(text, fontSize, config.color || '#FFFFFF', fontFamily);
       const nameImage = await pdfDoc.embedPng(bytes);
       
       const xPos = (width - imgW) / 2;
@@ -115,8 +116,8 @@ export const generateCertificatesZip = async (
       });
 
       const pdfBytes = await pdfDoc.save();
-      const fileNameSafe = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "_");
-      zip.file(`${String(i+1).padStart(3, '0')}_${fileNameSafe}.pdf`, pdfBytes);
+      const fileNameSafe = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      zip.file(`Certificado ${fileNameSafe}.pdf`, pdfBytes);
       
       onProgress(i + 1);
     } catch (err: any) {

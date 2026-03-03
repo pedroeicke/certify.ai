@@ -14,7 +14,8 @@ import {
   ChevronRight,
   RefreshCw,
   MoveVertical,
-  Settings2
+  Settings2,
+  Palette
 } from 'lucide-react';
 import { Step, Participant, LayoutConfig, GenerationProgress } from './types';
 import { parseParticipants, generateCertificatesZip } from './services/pdfService';
@@ -331,11 +332,56 @@ const AppContent: React.FC = () => {
                           <span>Enorme</span>
                         </div>
                       </div>
+
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <label className="flex items-center gap-2 font-bold text-slate-600 dark:text-slate-300">
+                            <Palette size={18} className="text-indigo-500" /> Cor da Fonte
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <input 
+                            type="color" value={layoutConfig.color} 
+                            onChange={(e) => setLayoutConfig({...layoutConfig, color: e.target.value})}
+                            className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0 bg-transparent"
+                          />
+                          <span className="bg-indigo-500/10 text-indigo-600 px-3 py-1 rounded-lg font-mono font-bold uppercase">{layoutConfig.color}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <label className="flex items-center gap-2 font-bold text-slate-600 dark:text-slate-300">
+                            <Type size={18} className="text-rose-500" /> Fonte
+                          </label>
+                        </div>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => setLayoutConfig({...layoutConfig, fontFamily: 'Great Vibes'})}
+                            className={`flex-1 py-3 rounded-xl font-bold transition-all ${layoutConfig.fontFamily === 'Great Vibes' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                            style={{ fontFamily: 'Great Vibes', fontSize: '1.2rem' }}
+                          >
+                            Great Vibes
+                          </button>
+                          <button 
+                            onClick={() => setLayoutConfig({...layoutConfig, fontFamily: 'Poppins'})}
+                            className={`flex-1 py-3 rounded-xl font-bold transition-all ${layoutConfig.fontFamily === 'Poppins' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                            style={{ fontFamily: 'Poppins' }}
+                          >
+                            Poppins
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
                        <p className="text-slate-400 text-sm italic">O nome será centralizado horizontalmente.</p>
-                       <div className="font-script text-3xl text-sky-500 opacity-60">Exemplo de Nome</div>
+                       <div 
+                         className="text-3xl opacity-80" 
+                         style={{ fontFamily: layoutConfig.fontFamily, color: layoutConfig.color }}
+                       >
+                         Exemplo de Nome
+                       </div>
                     </div>
                   </div>
 
@@ -343,7 +389,7 @@ const AppContent: React.FC = () => {
                     <div className="space-y-1">
                       <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Resumo</p>
                       <p className="text-slate-600 dark:text-slate-300 font-bold">
-                        {participants.length} nomes • Great Vibes • Branco
+                        {participants.length} nomes • {layoutConfig.fontFamily} • {layoutConfig.color}
                       </p>
                     </div>
                     <button onClick={startGeneration} className="w-full sm:w-auto bg-gradient-to-r from-sky-500 to-teal-500 text-white font-black py-5 px-16 rounded-3xl shadow-2xl shadow-sky-500/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 text-lg">
